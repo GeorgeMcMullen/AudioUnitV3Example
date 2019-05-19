@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	Utility code to manage scheduled parameters in an audio unit implementation.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Utility code to manage scheduled parameters in an audio unit implementation.
 */
 
 #import "DSPKernel.hpp"
@@ -27,10 +26,15 @@ void DSPKernel::handleOneEvent(AURenderEvent const *event) {
 	}
 }
 
-void DSPKernel::performAllSimultaneousEvents(AUEventSampleTime now, AURenderEvent const *&event) {
+void DSPKernel::performAllSimultaneousEvents(AUEventSampleTime now, AURenderEvent const *&event, AUMIDIOutputEventBlock midiOut) {
 	do {
 		handleOneEvent(event);
 
+        if (event->head.eventType == AURenderEventMIDI && midiOut)
+        {
+            midiOut(now, 0, event->MIDI.length, event->MIDI.data);
+        }
+        
 		// Go to next event.
 		event = event->head.next;
 		
@@ -42,7 +46,7 @@ void DSPKernel::performAllSimultaneousEvents(AUEventSampleTime now, AURenderEven
 	This function handles the event list processing and rendering loop for you.
 	Call it inside your internalRenderBlock.
 */
-void DSPKernel::processWithEvents(AudioTimeStamp const *timestamp, AUAudioFrameCount frameCount, AURenderEvent const *events) {
+void DSPKernel::processWithEvents(AudioTimeStamp const *timestamp, AUAudioFrameCount frameCount, AURenderEvent const *events, AUMIDIOutputEventBlock midiOut) {
 
 	AUEventSampleTime now = AUEventSampleTime(timestamp->mSampleTime);
 	AUAudioFrameCount framesRemaining = frameCount;
@@ -73,7 +77,7 @@ void DSPKernel::processWithEvents(AudioTimeStamp const *timestamp, AUAudioFrameC
 			now += AUEventSampleTime(framesThisSegment);
 		}
 		
-		performAllSimultaneousEvents(now, event);
+		performAllSimultaneousEvents(now, event, midiOut);
 	}
 }
 

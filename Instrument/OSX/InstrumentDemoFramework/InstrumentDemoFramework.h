@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	Header for the embedded InstrumentDemoFramework.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Header for the embedded InstrumentDemoFramework.
 */
 
 #import <Foundation/Foundation.h>
@@ -15,4 +14,4 @@ FOUNDATION_EXPORT double InstrumentDemoFramework_VersionNumber;
 FOUNDATION_EXPORT const unsigned char InstrumentDemoFramework_VersionString[];
 
 #import <InstrumentDemoFramework/InstrumentDemo.h>
-#import <InstrumentDemoFramework/InstrumentDemoViewController.h>
+#import <InstrumentDemoFramework/InstrumentDemoViewController+AUAudioUnitFactory.h>

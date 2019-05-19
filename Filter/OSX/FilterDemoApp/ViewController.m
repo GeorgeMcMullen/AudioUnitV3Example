@@ -1,24 +1,24 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	View controller which registers an AUAudioUnit subclass in-process for easy development, connects sliders and text fields to its parameters, and embeds the audio unit's view into a subview. Uses SimplePlayEngine to audition the effect.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+View controller which registers an AUAudioUnit subclass in-process for easy development, connects sliders and text fields to its parameters, and embeds the audio unit's view into a subview. Uses SimplePlayEngine to audition the effect.
 */
 
 #import "ViewController.h"
 #import "AppDelegate.h"
-
 #import "FilterDemoFramework.h"
 #import "FilterDemo-Swift.h"
 #import <CoreAudioKit/AUViewController.h>
-#import "FilterDemoViewController.h"
+#import <CoreGraphics/CGBase.h>
+#import "FilterDemoViewController+AUAudioUnitFactory.h"
 
 #define kMinHertz 12.0f
 #define kMaxHertz 20000.0f
 
 @interface ViewController () {
     IBOutlet NSButton *playButton;
+    IBOutlet NSButton *toggleViewsButton;
     
     IBOutlet NSSlider *cutoffSlider;
     IBOutlet NSSlider *resonanceSlider;
@@ -27,6 +27,9 @@
     IBOutlet NSTextField *resonanceTextField;
     
     FilterDemoViewController *auV3ViewController;
+    IBOutlet NSLayoutConstraint *horizontalViewSizeConstraint;
+    IBOutlet NSLayoutConstraint *verticalViewSizeConstraint;
+    BOOL smallViewMode;
     
     SimplePlayEngine *playEngine;
     
@@ -35,6 +38,8 @@
     
     AUParameterObserverToken parameterObserverToken;
     NSArray<AUAudioUnitPreset *> *factoryPresets;
+
+    NSArray<AUAudioUnitViewConfiguration*> *viewConfigurations;
 }
 @property (weak) IBOutlet NSView *containerView;
 
@@ -54,6 +59,7 @@
     // Do any additional setup after loading the view.
     [self embedPlugInView];
     
+    smallViewMode = NO;
     AudioComponentDescription desc;
     /*  Supply the correct AudioComponentDescription based on your AudioUnit type, manufacturer and creator.
      
@@ -85,10 +91,15 @@
     playEngine = [[SimplePlayEngine alloc] initWithComponentType: desc.componentType componentsFoundCallback: nil];
     [playEngine selectAudioUnitWithComponentDescription2:desc completionHandler:^{
         [self connectParametersToControls];
+
+        AUAudioUnitViewConfiguration *large = [[AUAudioUnitViewConfiguration alloc] initWithWidth:800.0f height:500.0f hostHasController:NO];
+        AUAudioUnitViewConfiguration *small = [[AUAudioUnitViewConfiguration alloc] initWithWidth:400.0f height:100.0f hostHasController:YES];
+        viewConfigurations = [NSArray arrayWithObjects:  large, small, nil];
+        toggleViewsButton.enabled = ([auV3ViewController.audioUnit supportedViewConfigurations:viewConfigurations].count == 2);
     }];
 
-    [cutoffSlider sendActionOn:NSLeftMouseDraggedMask | NSLeftMouseDownMask];
-    [resonanceSlider sendActionOn:NSLeftMouseDraggedMask | NSLeftMouseDownMask];
+    [cutoffSlider sendActionOn:NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseDown];
+    [resonanceSlider sendActionOn:NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseDown];
     
     [self populatePresetMenu];
 }
@@ -110,15 +121,9 @@
     
     view.translatesAutoresizingMaskIntoConstraints = NO;
     
-    NSArray *constraints = [NSLayoutConstraint constraintsWithVisualFormat: @"H:|-[view]-|"
-                                                                   options:0 metrics:nil
-                                                                     views:NSDictionaryOfVariableBindings(view)];
-    [_containerView addConstraints: constraints];
-    
-    constraints = [NSLayoutConstraint constraintsWithVisualFormat: @"V:|-[view]-|"
-                                                          options:0 metrics:nil
-                                                            views:NSDictionaryOfVariableBindings(view)];
-    [_containerView addConstraints: constraints];
+    horizontalViewSizeConstraint.constant = view.fittingSize.width;
+    verticalViewSizeConstraint.constant = view.fittingSize.height;
+    smallViewMode = NO;
 }
 
 -(void) connectParametersToControls {
@@ -149,8 +154,8 @@
 
 - (void)windowWillClose:(NSNotification *)notification {
     // Main applicaiton window closing, we're done
-    [playEngine stopPlaying];
     [playEngine.testAudioUnit.parameterTree removeParameterObserver:parameterObserverToken];
+    [playEngine stopPlaying];
     
     playEngine = nil;
     auV3ViewController = nil;
@@ -202,6 +207,23 @@ static double frequencyValueForSliderLocation(double location) {
     BOOL isPlaying = [playEngine togglePlay];
     
     [playButton setTitle: isPlaying ? @"Stop" : @"Play"];
+}
+
+- (IBAction)toggleViews:(id)sender {
+        AUAudioUnitViewConfiguration *newViewConf = smallViewMode ? viewConfigurations[0] : viewConfigurations[1];
+
+        // Hide to avoid any flickering
+        _containerView.hidden = YES;
+
+        [auV3ViewController.audioUnit selectViewConfiguration:newViewConf];
+        horizontalViewSizeConstraint.constant = newViewConf.width;
+        verticalViewSizeConstraint.constant = newViewConf.height;
+        smallViewMode = !smallViewMode;
+
+        // The updates in selectViewConfiguration are dispatched to the main queue, so lets queue our un-hide to make sure the changes finished before we show the container.
+        dispatch_async(dispatch_get_main_queue(), ^() {
+            _containerView.hidden = NO;
+        });
 }
 
 -(IBAction)changedCutoff:(id)sender {

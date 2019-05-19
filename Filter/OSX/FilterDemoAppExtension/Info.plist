@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -52,7 +52,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>66817</integer>
+					<integer>67072</integer>
 				</dict>
 			</array>
 			<key>NSExtensionServiceRoleType</key>

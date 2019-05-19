@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	Main entry point to the application.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Main entry point to the application.
 */
 
 import UIKit

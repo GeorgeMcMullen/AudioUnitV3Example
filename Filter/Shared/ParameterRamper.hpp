@@ -1,9 +1,8 @@
 /*
-	<samplecode>
-		<abstract>
-			Utility class to manage DSP parameters which can change value smoothly (be ramped) while rendering, without introducing clicks or other distortion into the signal.
-		</abstract>
-	</samplecode>
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Utility class to manage DSP parameters which can change value smoothly (be ramped) while rendering, without introducing clicks or other distortion into the signal.
 */
 
 #ifndef ParameterRamper_h
@@ -14,13 +13,15 @@
 #import <AudioToolbox/AudioToolbox.h>
 #import <libkern/OSAtomic.h>
 
+#import <atomic>
+
 class ParameterRamper {
 	float clampLow, clampHigh;
     float _uiValue;
     float _goal;
     float inverseSlope;
     AUAudioFrameCount samplesRemaining;
-	volatile int32_t changeCounter = 0;
+    std::atomic<int32_t> changeCounter;
 	int32_t updateCounter = 0;
 
     void setImmediate(float value) {
@@ -31,7 +32,7 @@ class ParameterRamper {
     }
 
 public:
-	ParameterRamper(float value) {
+    ParameterRamper(float value) : changeCounter(0) {
 		setImmediate(value);
 	}
 	
@@ -49,7 +50,7 @@ public:
 
     void setUIValue(float value) {
         _uiValue = value;
-		OSAtomicIncrement32Barrier(&changeCounter);
+        std::atomic_fetch_add(&changeCounter, 1);
     }
 	
 	float getUIValue() const { return _uiValue; }

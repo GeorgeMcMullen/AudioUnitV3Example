@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	Main entry point to the application.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Main entry point to the application.
 */
 
 import Cocoa
@@ -11,13 +10,19 @@ import Cocoa
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    func applicationDidFinishLaunching(aNotification: NSNotification) {
+    /*func applicationWillFinishLaunching(_ notification: Notification) {
+        NSUserDefaultsController.shared().defaults.set(false, forKey: "NSFullScreenMenuItemEverywhere")
+    }*/
+
+    func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Insert code here to initialize your application
     }
 
-    func applicationWillTerminate(aNotification: NSNotification) {
+    func applicationWillTerminate(_ aNotification: Notification) {
         // Insert code here to tear down your application
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return true
+    }
 }
-

@@ -1,9 +1,8 @@
 /*
-	<samplecode>
-		<abstract>
-			Utility code to manage scheduled parameters in an audio unit implementation.
-		</abstract>
-	</samplecode>
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Utility code to manage scheduled parameters in an audio unit implementation.
 */
 
 #ifndef DSPKernel_h
@@ -26,11 +25,11 @@ public:
 	// Override to handle MIDI events.
 	virtual void handleMIDIEvent(AUMIDIEvent const& midiEvent) {}
 	
-	void processWithEvents(AudioTimeStamp const* timestamp, AUAudioFrameCount frameCount, AURenderEvent const* events);
+	void processWithEvents(AudioTimeStamp const* timestamp, AUAudioFrameCount frameCount, AURenderEvent const* events, AUMIDIOutputEventBlock midiOut);
 
 private:
 	void handleOneEvent(AURenderEvent const* event);
-	void performAllSimultaneousEvents(AUEventSampleTime now, AURenderEvent const*& event);
+	void performAllSimultaneousEvents(AUEventSampleTime now, AURenderEvent const*& event, AUMIDIOutputEventBlock midiOut);
 };
 
 #endif /* DSPKernel_h */

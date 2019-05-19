@@ -1,9 +1,8 @@
 /*
-	<samplecode>
-		<abstract>
-			A DSPKernel subclass implementing the realtime signal processing portion of the FilterDemo audio unit.
-		</abstract>
-	</samplecode>
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+A DSPKernel subclass implementing the realtime signal processing portion of the FilterDemo audio unit.
 */
 
 #ifndef FilterDSPKernel_hpp
@@ -137,7 +136,7 @@ public:
 	
     // MARK: Member Functions
 
-    FilterDSPKernel() {}
+    FilterDSPKernel() : cutoffRamper(400.0 / 44100.0), resonanceRamper(20.0)  {}
 	
 	void init(int channelCount, double inSampleRate) {
 		channelStates.resize(channelCount);
@@ -260,8 +259,8 @@ private:
 public:
 
 	// Parameters.
-	ParameterRamper cutoffRamper = 400.0 / 44100.0;
-	ParameterRamper resonanceRamper = 20.0;
+	ParameterRamper cutoffRamper;
+	ParameterRamper resonanceRamper;
 };
 
 #endif /* FilterDSPKernel_hpp */

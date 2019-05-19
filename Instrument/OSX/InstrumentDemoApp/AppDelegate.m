@@ -1,12 +1,14 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	Main entry point to the application.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Main entry point to the application.
 */
 
 #import "AppDelegate.h"
+#import "ViewController.h"
+
+static dispatch_once_t onceToken;
 
 @implementation AppDelegate
 
@@ -14,13 +16,19 @@
     // Insert code here to initialize your application
 }
 
-- (void)applicationWillTerminate:(NSNotification *)aNotification {
-    // Insert code here to tear down your application
-    _quitting = YES;
+- (void)applicationDidBecomeActive:(NSNotification *)aNotification {
+    
+    dispatch_once(&onceToken, ^{
+        NSApplication *app = [NSApplication sharedApplication];
+        app.mainWindow.delegate = (ViewController *)app.mainWindow.contentViewController;
+    });
 }
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
-{
+- (void)applicationWillTerminate:(NSNotification *)aNotification {
+    // Insert code here to tear down your application
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
     return YES;
 }
 

@@ -1,15 +1,16 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	An AUAudioUnit subclass implementing a low-pass filter with resonance. Illustrates parameter management and rendering, including in-place processing and buffer management.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+An AUAudioUnit subclass implementing a low-pass filter with resonance. Illustrates parameter management and rendering, including in-place processing and buffer management.
 */
 
 #import "FilterDemo.h"
 #import <AVFoundation/AVFoundation.h>
+#import <CoreAudioKit/AUViewController.h>
 #import "FilterDSPKernel.hpp"
 #import "BufferedAudioBus.hpp"
+#import "FilterDemoViewController+AUAudioUnitFactory.h"
 
 #pragma mark AUv3FilterDemo (Presets)
 
@@ -21,8 +22,7 @@ typedef struct FactoryPresetParameters {
     AUValue resonanceValue;
 } FactoryPresetParameters;
 
-static const FactoryPresetParameters presetParameters[kNumberOfPresets] =
-{
+static const FactoryPresetParameters presetParameters[kNumberOfPresets] = {
     // preset 0
     {
         400.0f,//FilterParamCutoff,
@@ -42,8 +42,7 @@ static const FactoryPresetParameters presetParameters[kNumberOfPresets] =
     }
 };
 
-static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
-{
+static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name) {
     AUAudioUnitPreset *aPreset = [AUAudioUnitPreset new];
     aPreset.number = number;
     aPreset.name = name;
@@ -64,17 +63,29 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 	// C++ members need to be ivars; they would be copied on access if they were properties.
     FilterDSPKernel  _kernel;
     BufferedInputBus _inputBus;
-    
-    AUAudioUnitPreset   *_currentPreset;
-    NSInteger           _currentFactoryPresetIndex;
-    NSArray<AUAudioUnitPreset *> *_presets;
-}
-@synthesize parameterTree = _parameterTree;
-@synthesize factoryPresets = _presets;
 
-- (instancetype)initWithComponentDescription:(AudioComponentDescription)componentDescription options:(AudioComponentInstantiationOptions)options error:(NSError **)outError {
+    NSInteger        _currentFactoryPresetIndex;
+}
+@synthesize parameterTree  = _parameterTree;
+@synthesize factoryPresets = _factoryPresets;
+@synthesize currentPreset  = _currentPreset;
+
+- (instancetype)initWithComponentDescription:(AudioComponentDescription)componentDescription
+                                     options:(AudioComponentInstantiationOptions)options
+                                       error:(NSError **)outError {
+    
     self = [super initWithComponentDescription:componentDescription options:options error:outError];
     if (self == nil) { return nil; }
+    
+    // componentFlags 0x0000001e == SandboxSafe(2) + IsV3AudioUnit(4) + RequiresAsyncInstantiation(8) + CanLoadInProcess(0x10)
+    NSLog(@"AUv3FilterDemo initWithComponentDescription:\n componentType: %c%c%c%c\n componentSubType: %c%c%c%c\n componentManufacturer: %c%c%c%c\n componentFlags: %#010x",
+          FourCCChars(componentDescription.componentType),
+          FourCCChars(componentDescription.componentSubType),
+          FourCCChars(componentDescription.componentManufacturer),
+          componentDescription.componentFlags);
+    
+    NSLog(@"Process Name: %s PID: %d\n", [[[NSProcessInfo processInfo] processName] UTF8String],
+                                         [[NSProcessInfo processInfo] processIdentifier]);
 	
 	// Initialize a default format for the busses.
     AVAudioFormat *defaultFormat = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:44100.0 channels:2];
@@ -108,11 +119,19 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
     
     // Create factory preset array.
 	_currentFactoryPresetIndex = kDefaultFactoryPreset;
-    _presets = @[NewAUPreset(0, @"First Preset"),
-                 NewAUPreset(1, @"Second Preset"),
-                 NewAUPreset(2, @"Third Preset")];
+    _factoryPresets = @[NewAUPreset(0, @"First Preset"),
+                        NewAUPreset(1, @"Second Preset"),
+                        NewAUPreset(2, @"Third Preset")];
     
-	// Create the parameter tree.
+    /* 
+       Audio unit hosts can fetch the parameter tree to discover a units parameters.
+       KVO notifications are issued on this member to notify the host of changes to the set of available parameters.
+    
+       AUAudioUnit has an additional pseudo-property, "allParameterValues", on which KVO notifications are issued in
+       response to certain events where potentially all parameter values are invalidated. This includes changes to
+       currentPreset, fullState, and fullStateForDocument.
+    */
+    // Create the parameter tree.
     _parameterTree = [AUParameterTree createTreeWithChildren:@[cutoffParam, resonanceParam]];
 
 	// Create the input and output busses.
@@ -128,17 +147,27 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 
 	// implementorValueObserver is called when a parameter changes value.
 	_parameterTree.implementorValueObserver = ^(AUParameter *param, AUValue value) {
+        /* 
+           This block, used only in an audio unit implementation, receives all externally-generated
+           changes to parameter values. It should store the new value in its audio signal processing
+           state (assuming that that state is separate from the AUParameter object).
+        */
         filterKernel->setParameter(param.address, value);
 	};
 	
 	// implementorValueProvider is called when the value needs to be refreshed.
 	_parameterTree.implementorValueProvider = ^(AUParameter *param) {
+        /* 
+           The audio unit should return the current value for this parameter; the AUParameterNode
+           will store the value.
+        */
 		return filterKernel->getParameter(param.address);
 	};
 	
-	// A function to provide string representations of parameter values.
+	// implementorStringFromValueCallback is called to provide string representations of parameter values.
 	_parameterTree.implementorStringFromValueCallback = ^(AUParameter *param, const AUValue *__nullable valuePtr) {
-		AUValue value = valuePtr == nil ? param.value : *valuePtr;
+		// If value is nil, use the current value of the parameter.
+        AUValue value = valuePtr == nil ? param.value : *valuePtr;
 	
 		switch (param.address) {
 			case FilterParamCutoff:
@@ -155,25 +184,32 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 	self.maximumFramesToRender = 512;
     
     // set default preset as current
-    self.currentPreset = _presets.firstObject;
+    self.currentPreset = _factoryPresets[kDefaultFactoryPreset];
 
 	return self;
 }
 
 -(void)dealloc {
-    _presets = nil;
+    _factoryPresets = nil;
+    NSLog(@"AUv3FilterDemo Dealloc\n");
 }
 
 #pragma mark - AUAudioUnit (Overrides)
 
+// Subclassers must override this property's getter. Return the same object
+// every time, since clients can install KVO observers on it.
 - (AUAudioUnitBusArray *)inputBusses {
     return _inputBusArray;
 }
 
+// Subclassers must override this property's getter. Return the same object
+// every time, since clients can install KVO observers on it.
 - (AUAudioUnitBusArray *)outputBusses {
     return _outputBusArray;
 }
 
+// Allocate resources required to render.
+// Subclassers should call the superclass implementation. Hosts must call this to initialize the AU before beginning to render.
 - (BOOL)allocateRenderResourcesAndReturnError:(NSError **)outError {
 	if (![super allocateRenderResourcesAndReturnError:outError]) {
 		return NO;
@@ -196,7 +232,9 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 	
 	return YES;
 }
-	
+
+// Deallocate resources allocated by allocateRenderResourcesAndReturnError:
+// Subclassers should call the superclass implementation. Hosts should call this after finishing rendering.
 - (void)deallocateRenderResources {
 	_inputBus.deallocateRenderResources();
     
@@ -205,6 +243,7 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 
 #pragma mark - AUAudioUnit (AUAudioUnitImplementation)
 
+// Subclassers must provide a AUInternalRenderBlock (via a getter) to implement rendering.
 - (AUInternalRenderBlock)internalRenderBlock {
 	/*
 		Capture in locals to avoid ObjC member lookups. If "self" is captured in
@@ -254,7 +293,7 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 		}
 		
 		state->setBuffers(inAudioBufferList, outAudioBufferList);
-		state->processWithEvents(timestamp, frameCount, realtimeEventListHead);
+		state->processWithEvents(timestamp, frameCount, realtimeEventListHead, nil /* MIDIOutEventBlock */);
 
 		return noErr;
 	};
@@ -262,24 +301,22 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 
 #pragma mark- AUAudioUnit (Optional Properties)
 
-- (AUAudioUnitPreset *)currentPreset
-{
+- (AUAudioUnitPreset *)currentPreset {
     if (_currentPreset.number >= 0) {
         NSLog(@"Returning Current Factory Preset: %ld\n", (long)_currentFactoryPresetIndex);
-        return [_presets objectAtIndex:_currentFactoryPresetIndex];
+        return [_factoryPresets objectAtIndex:_currentFactoryPresetIndex];
     } else {
         NSLog(@"Returning Current Custom Preset: %ld, %@\n", (long)_currentPreset.number, _currentPreset.name);
         return _currentPreset;
     }
 }
 
-- (void)setCurrentPreset:(AUAudioUnitPreset *)currentPreset
-{
+- (void)setCurrentPreset:(AUAudioUnitPreset *)currentPreset {
     if (nil == currentPreset) { NSLog(@"nil passed to setCurrentPreset!"); return; }
     
     if (currentPreset.number >= 0) {
         // factory preset
-        for (AUAudioUnitPreset *factoryPreset in _presets) {
+        for (AUAudioUnitPreset *factoryPreset in _factoryPresets) {
             if (currentPreset.number == factoryPreset.number) {
                 
                 AUParameter *cutoffParameter = [self.parameterTree valueForKey: @"cutoff"];
@@ -335,6 +372,28 @@ static AUAudioUnitPreset* NewAUPreset(NSInteger number, NSString *name)
 	}
 	
     return [NSArray arrayWithArray:magnitudes];
+}
+
+#pragma mark - AUAudioUnit ViewController related
+
+- (NSIndexSet *)supportedViewConfigurations:(NSArray<AUAudioUnitViewConfiguration *> *)availableViewConfigurations {
+    NSMutableIndexSet *result = [NSMutableIndexSet indexSet];
+    for (unsigned i = 0; i < [availableViewConfigurations count]; ++i)
+    {
+        // The two views we actually have
+        if ((availableViewConfigurations[i].width >= 800 && availableViewConfigurations[i].height >= 500) ||
+            (availableViewConfigurations[i].width <= 400 && availableViewConfigurations[i].height <= 100) ||
+            // Full-screen size or our own window, always supported, we return our biggest view size in this case
+            (availableViewConfigurations[i].width == 0 && availableViewConfigurations[i].height == 0)) {
+            [result addIndex:i];
+        }
+    }
+
+    return result;
+}
+
+- (void)selectViewConfiguration:(AUAudioUnitViewConfiguration *)viewConfiguration {
+    return [self.filterDemoViewController handleSelectViewConfiguration:viewConfiguration];
 }
 
 @end

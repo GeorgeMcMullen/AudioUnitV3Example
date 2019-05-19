@@ -1,13 +1,12 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	View controller for the InstrumentDemo audio unit. Manages the interactions between a InstrumentView and the audio unit's parameters.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+View controller for the InstrumentDemo audio unit. Manages the interactions between a InstrumentView and the audio unit's parameters.
 */
 
 #import <Cocoa/Cocoa.h>
-#import "InstrumentDemoViewController.h"
+#import "InstrumentDemoViewController+AUAudioUnitFactory.h"
 #import <InstrumentDemoFramework/InstrumentDemo.h>
 
 @interface InstrumentDemoViewController () {
@@ -29,6 +28,56 @@
 
 @implementation InstrumentDemoViewController
 
+#pragma mark: <AUAudioUnitFactory>
+
+/* 
+ The principal UI class of a v3 audio unit extension must derive from AUViewController and implement the AUAudioUnitFactory protocol.
+ 
+    - createAudioUnitWithComponentDescription:error: should create and return an instance of its audio unit.
+ 
+ This method will be called only once per instance of the factory.
+ 
+ Note that in non-ARC code, "create" methods return unretained objects (unlike "create" C functions); the implementor should return an object with reference count 1 but autoreleased.
+*/
+
+- (AUv3InstrumentDemo *) createAudioUnitWithComponentDescription:(AudioComponentDescription)desc
+                                                           error:(NSError **)error {
+    self.audioUnit = [[AUv3InstrumentDemo alloc] initWithComponentDescription:desc error:error];
+    return self.audioUnit;
+}
+
+#pragma mark-
+#pragma mark: AUViewController
+
+- (id)init {
+    self = [super initWithNibName:@"InstrumentDemoViewController"
+                           bundle:[NSBundle bundleForClass:NSClassFromString(@"InstrumentDemoViewController")]];
+    return self;
+}
+
+- (void)dealloc {
+    if (parameterObserverToken) {
+        [_audioUnit.parameterTree removeParameterObserver:parameterObserverToken];
+        parameterObserverToken = 0;
+    }
+    NSLog(@"InstrumentDemoViewController Dealloc\n");
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    if (_audioUnit) {
+        [self connectViewWithAU];
+    }
+    
+    self.preferredContentSize = NSMakeSize(480, 122);
+    
+    [attackSlider sendActionOn:NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseDown];
+    [releaseSlider sendActionOn:NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseDown];
+}
+
+#pragma mark-
+
 -(void)setAudioUnit:(AUv3InstrumentDemo *)audioUnit {
     _audioUnit = audioUnit;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -38,16 +87,7 @@
     });
 }
 
--(AUv3InstrumentDemo *)getAudioUnit {
-    return _audioUnit;
-}
-
-- (void)dealloc {
-    if (parameterObserverToken) {
-        [_audioUnit.parameterTree removeParameterObserver:parameterObserverToken];
-        parameterObserverToken = 0;
-    }
-}
+#pragma mark-
 
 -(void)connectViewWithAU {
     AUParameterTree *paramTree = _audioUnit.parameterTree;
@@ -74,33 +114,26 @@
         
         [self updateAttack];
         [self updateRelease];
+    } else {
+        NSLog(@"paramTree is NULL!\n");
     }
 }
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
+#pragma mark-
 
-    if (_audioUnit) {
-        [self connectViewWithAU];
-    }
-    
-    self.preferredContentSize = NSMakeSize(480, 122);
-    
-    [attackSlider sendActionOn:NSLeftMouseDraggedMask | NSLeftMouseDownMask];
-    [releaseSlider sendActionOn:NSLeftMouseDraggedMask | NSLeftMouseDownMask];
-}
-
--(void) updateAttack {
+-(void)updateAttack {
     attackField.stringValue = [attackParameter stringFromValue: nil];
     attackSlider.floatValue = (log10f(attackParameter.value) + 3.0) * 100.0f;
 }
 
--(void) updateRelease {
+-(void)updateRelease {
     releaseField.stringValue = [releaseParameter stringFromValue: nil];
     releaseSlider.floatValue = (log10f(releaseParameter.value) + 3.0) * 100.0f;
 }
 
--(IBAction) attackValueChanged:(id) sender {
+#pragma mark: Actions
+
+-(IBAction)attackValueChanged:(id) sender {
     if (sender == attackField) {
         attackParameter.value = attackField.floatValue;
     } else if (sender == attackSlider) {
@@ -108,7 +141,7 @@
     }
 }
 
--(IBAction) releaseValueChanged:(id) sender {
+-(IBAction)releaseValueChanged:(id) sender {
     if (sender == releaseField) {
         releaseParameter.value = releaseField.floatValue;
     } else if (sender == releaseSlider) {

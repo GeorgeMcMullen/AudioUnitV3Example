@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	View for the FilterDemo audio unit. This lets the user adjust the filter cutoff frequency and resonance on an X-Y grid.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+View for the FilterDemo audio unit. This lets the user adjust the filter cutoff frequency and resonance on an X-Y grid.
 */
 
 #import "FilterView.h"
@@ -57,9 +56,8 @@ static double logValueForNumber(double number, double base) {
 
 @implementation FilterView
 
--(void)dealloc
-{
-    NSLog(@"Dealloc called on FilterView\n");
+-(void)dealloc {
+    NSLog(@"FilterView Dealloc\n");
 }
 
 -(void)awakeFromNib {
@@ -93,6 +91,9 @@ static double logValueForNumber(double number, double base) {
     [self createDBLabelsAndLines];
     [self createFrequencyLabelsAndLines];
     [self createControlPoint];
+
+    // This should be called implicity, but it is not
+    [self layoutSublayersOfLayer:self.layer];
 }
 
 -(void) viewDidMoveToWindow {

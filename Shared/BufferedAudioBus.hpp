@@ -1,9 +1,8 @@
 /*
-	<samplecode>
-		<abstract>
-			Utility classes to manage audio formats and buffers for an audio unit implementation's input and output audio busses.
-		</abstract>
-	</samplecode>
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+Utility classes to manage audio formats and buffers for an audio unit implementation's input and output audio busses.
 */
 
 #import <AudioToolbox/AudioToolbox.h>

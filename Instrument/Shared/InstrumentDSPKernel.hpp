@@ -1,9 +1,8 @@
 /*
-	<samplecode>
-		<abstract>
-			A DSPKernel subclass implementing the realtime signal processing portion of the InstrumentDemo audio unit.
-		</abstract>
-	</samplecode>
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+A DSPKernel subclass implementing the realtime signal processing portion of the InstrumentDemo audio unit.
 */
 
 #ifndef InstrumentDSPKernel_hpp
@@ -170,11 +169,9 @@ public:
 
 	};
 	
-	
     // MARK: Member Functions
 
-    InstrumentDSPKernel()
-	{
+    InstrumentDSPKernel() {
 		noteStates.resize(128);
 		for (NoteState& state : noteStates) {
 			state.kernel = this;

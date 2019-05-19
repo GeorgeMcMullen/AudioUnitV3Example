@@ -1,9 +1,8 @@
 /*
-	Copyright (C) 2016 Apple Inc. All Rights Reserved.
-	See LICENSE.txt for this sample’s licensing information
-	
-	Abstract:
-	An AUAudioUnit subclass implementing a simple instrument.
+See LICENSE.txt for this sample’s licensing information.
+
+Abstract:
+An AUAudioUnit subclass implementing a simple instrument.
 */
 
 #import "InstrumentDemo.h"
@@ -25,17 +24,27 @@
 @implementation AUv3InstrumentDemo {
 	// C++ members need to be ivars; they would be copied on access if they were properties.
     InstrumentDSPKernel _kernel;
-	BufferedOutputBus _outputBusBuffer;
+	BufferedOutputBus   _outputBusBuffer;
 }
 @synthesize parameterTree = _parameterTree;
 
-- (instancetype)initWithComponentDescription:(AudioComponentDescription)componentDescription options:(AudioComponentInstantiationOptions)options error:(NSError **)outError {
+- (instancetype)initWithComponentDescription:(AudioComponentDescription)componentDescription
+                                     options:(AudioComponentInstantiationOptions)options
+                                       error:(NSError **)outError {
+    
     self = [super initWithComponentDescription:componentDescription options:options error:outError];
-
-    if (self == nil) {
-    	return nil;
-    }
-	
+    if (self == nil) { return nil; }
+    
+    // componentFlags 0x0000001e == SandboxSafe(2) + IsV3AudioUnit(4) + RequiresAsyncInstantiation(8) + CanLoadInProcess(0x10)
+    NSLog(@"AUv3InstrumentDemo initWithComponentDescription:\n componentType: %c%c%c%c\n componentSubType: %c%c%c%c\n componentManufacturer: %c%c%c%c\n componentFlags: %#010x",
+          FourCCChars(componentDescription.componentType),
+          FourCCChars(componentDescription.componentSubType),
+          FourCCChars(componentDescription.componentManufacturer),
+          componentDescription.componentFlags);
+    
+    NSLog(@"Process Name: %s PID: %d\n", [[[NSProcessInfo processInfo] processName] UTF8String],
+                                         [[NSProcessInfo processInfo] processIdentifier]);
+    
 	// Initialize a default format for the busses.
     AVAudioFormat *defaultFormat = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:44100. channels:2];
 
@@ -96,7 +105,7 @@
 		switch (param.address) {
 			case InstrumentParamAttack:
 			case InstrumentParamRelease:
-				return [NSString stringWithFormat:@"%.3f", value];
+				return [NSString stringWithFormat:@"%.4f", value];
 			
 			default:
 				return @"?";
@@ -110,6 +119,7 @@
 
 -(void)dealloc {
     // Deallocate resources as required.
+    NSLog(@"AUv3InstrumentDemo Dealloc\n");
 }
 
 #pragma mark - AUAudioUnit (Overrides)
@@ -137,6 +147,11 @@
     [super deallocateRenderResources];
 }
 
+- (NSArray<NSString *>*) MIDIOutputNames
+{
+    return @[@"midiOut"];
+}
+
 #pragma mark - AUAudioUnit (AUAudioUnitImplementation)
 
 - (AUInternalRenderBlock)internalRenderBlock {
@@ -145,6 +160,7 @@
         render, we're doing it wrong.
 	*/
 	__block InstrumentDSPKernel *state = &_kernel;
+	__block AUMIDIOutputEventBlock midiOut = self.MIDIOutputEventBlock;
     
     return ^AUAudioUnitStatus(
 			 AudioUnitRenderActionFlags *actionFlags,
@@ -157,7 +173,7 @@
 		
 		_outputBusBuffer.prepareOutputBufferList(outputData, frameCount, true);
 		state->setBuffers(outputData);		
-		state->processWithEvents(timestamp, frameCount, realtimeEventListHead);
+		state->processWithEvents(timestamp, frameCount, realtimeEventListHead, midiOut);
 
 		return noErr;
 	};
